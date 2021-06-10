@@ -3,9 +3,12 @@ let addTaskCard = document.getElementById('card-form-task')
 let cancelTaskCard = document.getElementById('cancel-task')
 let saveTask = document.getElementById('save-task')
 let message = document.getElementById('message')
+let message1 = document.getElementById('message2')
 let taskCardList = document.querySelector('.task-card-list')
 
 document.addEventListener('DOMContentLoaded', renderNoList)
+// Funtion call on load for task list
+document.addEventListener('DOMContentLoaded', getTasks)
 
 function renderNoList() {
   if (taskCardList.innerHTML == '') {
@@ -34,7 +37,15 @@ cancelTaskCard.addEventListener('click', (e) => {
 
 saveTask.addEventListener('click', renderCardList)
 
-function renderCardList() {
+async function renderCardList() {
+  let title = document.getElementById('title')
+  let description = document.getElementById('description')
+  // console.log(title.value)
+  let taskData = {
+    title: title.value,
+    description: description.value,
+  }
+
   if (
     title.value != null &&
     title.value != '' &&
@@ -49,6 +60,18 @@ function renderCardList() {
       taskCardList.innerHTML = ''
     }
 
+    let res = await fetch('http://localhost:3000/api/v1/addTask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(taskData),
+    })
+
+    let data = await res.json()
+
+    const { title, description, _id } = await data.task
+
     let div = document.createElement('div')
     div.className = 'col-12 col-sm col-sm-12 col-md-4 col-lg-4 my-2'
 
@@ -56,11 +79,11 @@ function renderCardList() {
       <div class="card rounded shadow bg-card">
         <div class="card-body">
           <span class="d-flex flex-row justify-content-between">
-            <h3>${title.value}</h3>
-            <h2 class="delete-card text-danger" title="Delete card">&times;</h2>
+            <h3>${title}</h3>
+            <h2 class="delete-card text-danger" title="Delete card" data-id="${_id}">&times;</h2>
           </span>
           <p>
-            ${description.value}
+            ${description}
           </p>
           <button type="button" class="btn btn-info btn-lg done-btn">
             Done
@@ -96,15 +119,31 @@ function showMessage(classNames, msg) {
   }, 5000)
 }
 
+function showMessage1(classNames, msg) {
+  let div = document.createElement('div')
+  div.className = classNames
+  div.innerText = msg
+
+  message1.appendChild(div)
+
+  setTimeout(function () {
+    let alerts = document.querySelectorAll('.alert')
+    alerts.forEach((alert) => {
+      alert.remove()
+    })
+  }, 5000)
+}
+
 function deleteCardFun() {
   let deleteCard = document.querySelectorAll('.delete-card')
-  console.log(deleteCard)
   deleteCard.forEach((dcard, idx) => {
     dcard.addEventListener('click', (e) => {
       dcard.parentElement.parentElement.parentElement.parentElement.remove()
       if (idx == 0) {
         renderNoList()
       }
+      // console.log(e.target)
+      deleteCardTask(e.target.getAttribute('data-id'))
     })
   })
   // console.log(deleteCard.length)
@@ -116,8 +155,61 @@ function doneTaskCard() {
     doneCard.addEventListener('click', (e) => {
       doneCard.parentElement.parentElement.classList.add('done')
       doneCard.parentElement.parentElement.classList.remove('bg-card')
-
       e.target.disabled = true
     })
   })
+}
+
+async function getTasks() {
+  let res = await fetch('http://localhost:3000/api/v1/tasks')
+  let data = await res.json()
+  renderTaskList(data)
+}
+
+function renderTaskList(tasks) {
+  if (
+    taskCardList.firstElementChild.firstElementChild.classList.contains(
+      'card',
+    ) == false
+  ) {
+    taskCardList.innerHTML = ''
+  }
+  tasks.forEach((task) => {
+    const { title, description, _id } = task
+    let div = document.createElement('div')
+    div.className = 'col-12 col-sm col-sm-12 col-md-4 col-lg-4 my-2'
+
+    let card = `
+            <div class="card rounded shadow bg-card">
+              <div class="card-body">
+                <span class="d-flex flex-row justify-content-between">
+                  <h3>${title}</h3>
+                  <h2 class="delete-card text-danger" title="Delete card" data-id="${_id}">&times;</h2>
+                </span>
+                <p>
+                  ${description}
+                </p>
+                <button type="button" class="btn btn-info btn-lg done-btn">
+                  Done
+                </button>
+              </div>
+            </div>
+            `
+
+    div.innerHTML = card
+    taskCardList.appendChild(div)
+  })
+
+  deleteCardFun()
+  doneTaskCard()
+}
+
+async function deleteCardTask(id) {
+  let res = await fetch(`http://localhost:3000/api/v1/deleteTask/${id}`, {
+    method: 'DELETE',
+  })
+
+  let data = await res.json()
+
+  showMessage1('alert alert-success', data.message)
 }
